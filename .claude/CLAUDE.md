@@ -1,186 +1,188 @@
-# Academic Research Skills
+# CLAUDE.md
 
-A suite of Claude Code skills for rigorous academic research, paper writing, peer review, and pipeline orchestration.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Skills Overview
+## What this is
 
-| Skill | Purpose | Key Modes |
-|-------|---------|-----------|
-| `deep-research` v2.9.3 | 13-agent research team | full, quick, socratic, review, lit-review, fact-check, systematic-review |
-| `academic-paper` v3.1.1 | 12-agent paper writing | full, plan, outline-only, revision, revision-coach, abstract-only, lit-review, format-convert, citation-check, disclosure |
-| `academic-paper-reviewer` v1.9.0 | Multi-perspective paper review (5 reviewers + optional cross-model DA critique) | full, re-review, quick, methodology-focus, guided, calibration |
-| `academic-pipeline` v3.8.2 | Full pipeline orchestrator | (coordinates all above) |
+Academic Research Skills (ARS) is a source-available academic research copilot framework for Claude Code. It provides a 10-stage pipeline (research → write → integrity → review → revise → final integrity → finalize) with mandatory human checkpoints. The code is agent prompts (markdown), validation scripts (Python 3), schemas (JSON), and slash command definitions. This is not traditional code—most logic lives in detailed agent prompts and validation contracts.
 
-## v3.7.3 Key Additions (in progress)
+**License:** CC-BY-NC 4.0 (Academic/non-commercial use only)
 
-**External motivation:** Zhao et al. arXiv:2605.07723 (2026-05). The paper documents 146,932 hallucinated citations across arXiv / bioRxiv / SSRN / PMC in 2025 alone, with inflection at mid-2024 and 85.3% of preprint hallucinations surviving into the published record. It names the L3 (claim faithfulness) gap explicitly as the load-bearing unsolved problem. v3.7.3 closes the locator-channel half of that gap and adds contamination advisory signals.
+## Essential Commands
 
-**L3-1 — Three-Layer Citation Emission (claim faithfulness locator):**
+All commands run from repository root. Use Python 3.x.
 
-- `synthesis_agent`, `draft_writer_agent`, `report_compiler_agent` gain `## Three-Layer Citation Emission (v3.7.3)` H2 sections. Extends v3.7.1 Two-Layer with `<!--anchor:<kind>:<value>-->` after `<!--ref:slug-->`, `<kind>` ∈ `{quote, page, section, paragraph, none}`. Quote anchors capped at 25 words; URL-encoded values; no frontmatter reads (v3.6.7 partial-inversion preserved).
-- `pipeline_orchestrator_agent` finalizer becomes 5-cell with precedence-zero NO-LOCATOR check. `formatter_agent` gains explicit hard-gate refusal for `[UNVERIFIED CITATION — NO QUOTE OR PAGE LOCATOR]`.
+```bash
+# Full spec consistency check (runs ~30 sub-checks, 3-5 minutes)
+# Entry point for all CI checks. This is what CI runs on every PR.
+pip install -r requirements-dev.txt
+python3 scripts/check_spec_consistency.py
 
-**L3-2 — Contaminated-source advisory signals:**
-
-- `literature_corpus_entry.schema.json` adds optional `contamination_signals: { preprint_post_llm_inflection, semantic_scholar_unmatched }` object. Backward compat: entries without the field stay valid.
-- `bibliography_agent` computes both signals at ingest time. Preprint signal: `year >= 2024 AND venue ∈ closed-list-of-6`. SS-unmatched signal: existing Semantic Scholar protocol returns no match; exempted for `obtained_via: manual`; omitted on API degradation.
-- Finalizer annotates `ok` / `LOW-WARN` markers with `CONTAMINATED-PREPRINT` / `CONTAMINATED-UNMATCHED` / `CONTAMINATED-PREPRINT+UNMATCHED`. Advisory only — does NOT change gate decision.
-
-**Lint + tests:**
-
-- New `scripts/check_v3_7_3_three_layer_citation.py` + 14 tests.
-- New 6 contamination_signals tests in existing literature_corpus schema test file.
-- New v3.7.3 line-budget test; v3.6.7 Phase 6.6 budget test updated to subtract v3.7.3 extension lines alongside v3.7.1 Step 3b.
-
-**Regression status (final, post round-10 convergence):** 967 pass / 3 skipped / 0 failed (pre-review baseline 925; +42 tests across F1-F22 closures). v3.6.7 PATTERN PROTECTION + v3.7.1 / v3.7.2 lints unchanged. v3.7.3 lint wired into spec-consistency.yml CI workflow. 11-round review trajectory (Codex×10 + Gemini 3.1-pro-preview cross-model×1): F1-F22 closed across 10 codex rounds + 1 gemini round, no cross-reviewer overlap — canonical review-vs-challenge cascade per `feedback_codex_workflow_consolidated.md`. Round 10 codex returned **0 findings**, convergence signal achieved.
-
-Spec: `docs/design/2026-05-12-ars-v3.7.3-claim-faithfulness-and-contaminated-source-spec.md`.
-
-## v3.7.0 Key Additions
-
-- **Claude Code plugin packaging**: ARS now installs in one line via `/plugin marketplace add Imbad0202/academic-research-skills` + `/plugin install academic-research-skills`. The traditional `git clone + symlink to ~/.claude/skills/` flow continues to work — both tracks are first-class. Repo gains four top-level directories: `.claude-plugin/`, `commands/`, `agents/`, `hooks/`, plus a `skills/` symlink dir; existing 4 skill directories untouched.
-- **10 slash commands** (`commands/ars-*.md`) mapping `MODE_REGISTRY.md` entries to `/ars-<mode>` triggers with model routing pinned in frontmatter — `opus` for `full` and `revision-coach`, `sonnet` for the other 8, no Haiku.
-- **3 plugin-shipped agents** (`agents/*_agent.md`) as relative symlinks to the v3.6.7-hardened downstream agents in `deep-research/agents/`. Source frontmatter gains `model: inherit` so an Opus session keeps Opus agents while the user's PreToolUse `warn-agent-no-model.sh` hook gates Haiku at dispatch.
-- **SessionStart announce hook** (`hooks/hooks.json` + `scripts/announce-ars-loaded.sh`) lists the 10 slash commands + 3 agents + token-budget pointer when the plugin loads. Bash 3.2 compatible.
-- **Phase 2.2 scope reduction note**: a `SubagentStop → run_codex_audit.sh` codex audit hook was scoped out for v3.7.0 (contract gap: hook payload carries no stage/deliverable; invoker boundary: same-session in-LLM Bash forbidden by the wrapper). Deferred to a future release.
-
-## v3.6.8 Key Additions
-
-> **Naming note**: this release ships the v3.6.6 generator-evaluator contract design (`docs/design/2026-04-27-ars-v3.6.6-generator-evaluator-contract-design.md`) and its implementation. The v3.6.6 spec/implementation work landed after v3.6.7 due to project sequencing (v3.6.7 downstream-agent pattern protection shipped first); the design doc retains the **v3.6.6 internal naming** for the contract gate version (`writer_full` / `evaluator_full` mode, Schema 13.1, `pre_commitment_artifacts` + `disagreement_handling` schema fields), while the suite release is tagged **v3.6.8** to keep the CHANGELOG monotonic.
-
-- **Schema 13.1 generator-evaluator contract gate** for `academic-paper full` mode. `shared/sprint_contract.schema.json` upgrades to Schema 13.1 with two new `mode` enum values (`writer_full` + `evaluator_full`), two new optional top-level fields (`pre_commitment_artifacts` writer-only, `disagreement_handling` evaluator-only), and 12 `allOf` branches enforcing reviewer-conditional / writer-conditional / evaluator-conditional gates. Existing reviewer contracts validate byte-equivalent under Schema 13.1 (§3.6 zero-touch promise).
-- **Two new shipped contract templates**: `shared/contracts/writer/full.json` (D1–D7 dimensions, F1/F4/F2/F3/F0 conditions, no `scoring_plan`) and `shared/contracts/evaluator/full.json` (D1–D5 dimensions, F1/F2/F3/F6/F4/F5/F0 conditions, full `scoring_plan` + `disagreement_handling`).
-- **Two-phase orchestration inside `academic-paper full` mode**: Phase 4 (writer drafting) splits into Phase 4a paper-blind pre-commitment + Phase 4b paper-visible drafting + self-scoring; Phase 6 (in-pair evaluator review) splits into Phase 6a paper-blind pre-commitment + Phase 6b paper-visible scoring + decision. Phase-numbered `<phase4a_output>` / `<phase6a_output>` data delimiters mirror the v3.6.2 reviewer pattern. Lint counts: writer 3+4 / evaluator 5+5 / reviewer 5+6 zero-touch. `[GENERATOR-PHASE-ABORTED]` abort tag with 5%/three-month operational monitor.
-- **`academic-paper/SKILL.md` `## v3.6.6 Generator-Evaluator Contract Protocol` orchestration block** (101 lines): four-call structure, system-vs-user content discipline, schema-vs-runtime emission distinction, per-phase lint, abort handling, two valid Stage 3 entry paths (standard F0/F4 + exceptional F5), cross-session resume scope. Plus `## Known limitations` section carrying graceful-degradation forward note + cross-session resume forward note + in-pair vs external reviewer tech debt.
-- **`draft_writer_agent.md` + `peer_reviewer_agent.md`** each gain a verbatim `## v3.6.6 Generator-Evaluator Contract Protocol` section with system-prompt sub-sections for Phase 4a/4b (writer) and Phase 6a/6b (evaluator).
-- **`scripts/check_sprint_contract.py` SC-* mode-gating audit**: SC-5 (measurement_procedure canonical outputs) and SC-11 (panel_size sanity) now mode-gated to `mode.startswith("reviewer_")`; SC-9 (paraphrase_minimum_dimensions exceeds dim count) extended across all three mode families with each mode reading its own field path. Mode-agnostic warnings (SC-1/2/3/4/7/10) unchanged.
-- **17 new validator tests** (54 → 71): 4 shipped writer/evaluator template positive tests, 5 schema-branch negative tests (branches 11/12/4/5/6 hard-fail; cross-mode field leakage intentionally NOT tested per §7.1 R1 settled), 2 §3.6 reviewer regression tests, 6 SC-5/SC-9/SC-11 mode-gating tests.
-- **`scripts/check_v3_6_6_ab_manifest.py` + workflow extension**: enforces §6.2 manifest schema + §6.5 git-tracked invariants on `tests/fixtures/v3.6.6-ab/manifest.yaml`. `.github/workflows/spec-consistency.yml` extends the sprint contract validation loop to iterate writer + evaluator template directories alongside the existing reviewer loop, plus runs the new manifest CI lint as an additional step.
-- **`tests/fixtures/v3.6.6-ab/` A/B evidence fixture stub** (30 files): manifest + README + 6 paper-A inputs/baseline + 1 paper-C inputs/baseline + Stage 3 reviewer excerpt + 6 codex-judge baseline placeholders. `manifest_lint_mode: spec_branch`, `fixture_version: 0.1.0`. Real fixture data populates in follow-up commits.
-- **`academic-paper-reviewer/references/sprint_contract_protocol.md` cross-reference** noting Schema 13.1 since v3.6.6 + pointing readers at `academic-paper/SKILL.md` + design doc §5 for the parallel generator-evaluator protocol.
-
-## v3.6.7 Key Additions
-
-- **Downstream-agent pattern protection layer (Step 1+2)**: `synthesis_agent`, `research_architect_agent` (survey-designer mode), and `report_compiler_agent` (abstract-only mode) carry a `PATTERN PROTECTION (v3.6.7)` block hardening 13 of 18 documented hallucination/drift patterns (A1–A5 narrative-side, B1–B5 instrument-side, C1–C3 publication-side). Step 6 (orchestrator runtime hooks) and Step 8 (synthetic eval case) ship in a follow-up PR.
-- **Four reference files in `shared/references/`**: `irb_terminology_glossary.md` (anonymity/confidentiality/de-identification/pseudonymization), `psychometric_terminology_glossary.md` (true reverse-coded vs contrast item), `protected_hedging_phrases.md` (five-rule contract for upstream-marked hedges), `word_count_conventions.md` (whitespace-split + 3–5% buffer).
-- **Cross-model audit prompt template** at `shared/templates/codex_audit_multifile_template.md` covering seven audit dimensions plus a mandatory three-part Section 4(f) check for `report_compiler_agent` bundles.
-- **Static lint + 29-test mutation suite** at `scripts/check_v3_6_7_pattern_protection.py` and `scripts/test_check_v3_6_7_pattern_protection.py`, both wired into `.github/workflows/spec-consistency.yml`.
-- **Ship-quality target update**: per spec §10, ARS pipeline target moves from "each agent produces a clean v1" to "end-to-end deliverable set passes independent xhigh cross-model audit at 0 P1+P2 finding within three rounds."
-
-## v3.6.5 Key Additions
-
-- **Material Passport `literature_corpus[]` consumer integration in Phase 1**: `deep-research/agents/bibliography_agent.md` and `academic-paper/agents/literature_strategist_agent.md` now read `literature_corpus[]` via the **corpus-first, search-fills-gap** flow when the passport carries a non-empty corpus. Both consumers follow the same five-step shared flow (Step 0 presence detection → Step 1 pre-screen → Step 2 search-fills-gap → Step 3 merge → Step 4 emit Search Strategy report) and the same four Iron Rules (Same criteria / No silent skip / No corpus mutation / Graceful fallback on parse failure).
-- **PRE-SCREENED reproducibility block**: Search Strategy reports gain a PRE-SCREENED FROM USER CORPUS block enumerating included / excluded / skipped corpus entries, with F3 zero-hit note and F4a–F4f provenance reporting that compose around partial declaration of `obtained_via` / `obtained_at`. `final_included = pre_screened_included[] ∪ external_included[]` stays neutral — no provenance tags on bibliography entries or literature matrix rows.
-- **Consumer protocol reference**: `academic-pipeline/references/literature_corpus_consumers.md` carries the canonical PRE-SCREENED template, BAD/GOOD examples, four Iron Rules, and per-consumer reading instructions. Both consumer agents backpoint to this reference.
-- **CI lint** `scripts/check_corpus_consumer_protocol.py` enforcing nine protocol invariants with manifest-driven consumer list (`scripts/corpus_consumer_manifest.json`).
-- **Schema 9 caveat retired**: `shared/handoff_schemas.md` retired the v3.6.4 "Consumer-side integration deferred to v3.6.5+" caveat; replaced with backpointer to the consumer protocol.
-- **No schema change**: existing user adapters work without modification. Consumer integration is presence-based: auto-engages when passport carries a non-empty `literature_corpus[]` and parses cleanly. Parse failures fall back to external-DB-only flow with a `[CORPUS PARSE FAILURE]` surface. No new env flag introduced. `citation_compliance_agent` corpus integration deferred (target version TBD post-v3.8).
-
-## v3.6.4 Key Additions
-
-- **Material Passport `literature_corpus[]` input port**: Schema 9 gains an optional `literature_corpus[]` field defined by `shared/contracts/passport/literature_corpus_entry.schema.json`. Entries carry CSL-JSON authors, year, title, and `source_pointer` back to the user's own KB. `abstract` and `user_notes` are private optional fields with copyright caveats.
-- **Language-neutral adapter contract**: `academic-pipeline/references/adapters/overview.md` specifies how any adapter produces literature_corpus entries. Fail-soft error handling with mandatory `rejection_log.yaml`, deterministic ordering (sort by `citation_key` / `source`), and extension points for user-written adapters.
-- **Three reference Python adapters**: `scripts/adapters/{folder_scan,zotero,obsidian}.py` with tests and fixtures. Starting points only; users are expected to write their own adapters for non-reference corpus sources.
-- **Rejection log contract**: `shared/contracts/passport/rejection_log.schema.json`. Always emitted, empty when no rejections; closed enum of categorical reason values.
-- **CI lint + pytest job**: `scripts/check_literature_corpus_schema.py` validates schemas + examples; `scripts/sync_adapter_docs.py --check` prevents schema→docs drift; new `pytest.yml` workflow runs `scripts/adapters/tests/` on path-filtered triggers.
-- **Input-port-only at v3.6.4**: v3.6.4 shipped the schema and adapter contract; consumer integration landed in v3.6.5.
-
-## v3.6.3 Key Additions
-
-- **Opt-in passport reset boundary**: new `ARS_PASSPORT_RESET=1` flag promotes every FULL checkpoint to a context-reset boundary. New `resume_from_passport=<hash>` mode in `academic-pipeline` lets users resume a pipeline run in a fresh Claude Code session from the Material Passport ledger alone, without replaying prior turns. For `systematic-review` mode with the flag ON, reset is mandatory at every FULL checkpoint; other modes treat reset as the flag-gated default. Flag OFF preserves pre-v3.6.3 continuation behavior byte-for-byte.
-- **Schema 9 `reset_boundary[]` append-only ledger** with two entry kinds: `kind: boundary` (recorded at FULL checkpoints) and `kind: resume` (recorded when a boundary is consumed). Hash uses JSON Canonical Form + SHA-256 with canonical `"000000000000"` placeholder for self-reference safety. Optional `pending_decision` field handles MANDATORY branch choices (Stage 3 reject/restructure/abort, Stage 5 finalization) that would otherwise be lost on reset.
-- **Protocol doc** `academic-pipeline/references/passport_as_reset_boundary.md` (authoritative) + **CI lint** `scripts/check_passport_reset_contract.py` enforcing every mention of the flag co-locates a protocol-doc reference.
-- **Docs** `docs/PERFORMANCE.md` + `docs/PERFORMANCE.zh-TW.md` updated with long-running-session guidance for the reset workflow.
-
-## v3.6.2 Key Additions
-
-- **Sprint Contract hard gate for reviewers**: Schema 13 + validator + two reviewer templates (`full.json` panel 5, `methodology_focus.json` panel 2). Reviewer runs paper-content-blind Phase 1 + paper-visible Phase 2 via `<phase1_output>` data delimiter. Synthesizer runs three-step mechanical protocol (build matrix → evaluate with panel-relative quantifier + expression vocabulary → resolve precedence by severity). Forbidden-ops list in `academic-paper-reviewer/agents/editorial_synthesizer_agent.md`. Reserved reviewer modes (`re_review`, `calibration`, `guided`) keep pre-v3.6.2 behaviour until follow-up templates land. Spec: `docs/design/2026-04-23-ars-v3.6.2-sprint-contract-design.md`. Orchestration ref: `academic-paper-reviewer/references/sprint_contract_protocol.md`.
-
-## v3.5.1 Key Additions
-
-- **Opt-in Socratic reading-check probe**: new §"Optional Reading Probe Layer" in `deep-research/agents/socratic_mentor_agent.md`. Gated by `ARS_SOCRATIC_READING_PROBE=1`. Fires at most once per goal-oriented Socratic session when the user has cited a specific paper. Decline is logged without penalty. Outcome is recorded inline in the Research Plan Summary and carried into the Stage 6 AI Self-Reflection Report. No new agent, no new mode, no schema change. See `docs/design/2026-04-22-ars-v3.7.3-reading-check-probe-design.md`.
-
-## v3.5 Key Additions
-
-- **Collaboration Depth Observer**: new `collaboration_depth_agent` in `academic-pipeline` (Agent Team grows 3 → 4). Invoked at every FULL/SLIM checkpoint and at pipeline completion; scores user-AI collaboration on 4 dimensions (Delegation Intensity, Cognitive Vigilance, Cognitive Reallocation, Zone Classification) per `shared/collaboration_depth_rubric.md`. **Advisory only — never blocks.** MANDATORY integrity checkpoints (2.5, 4.5) preserved and do not invoke the observer. Cross-model divergence flagged, not silently averaged. Based on Wang & Zhang (2026) IJETHE 23:11 (DOI 10.1186/s41239-026-00585-x).
-
-## v3.4 Key Additions
-
-- **Compliance Agent (shared)**: single mode-aware agent running PRISMA-trAIce 17 items + RAISE 4 principles + 8-role matrix. Hooks Stage 2.5 / 4.5 Integrity Gates with tier-based block. Non-SR entries run principles-only warn-only. See `shared/agents/compliance_agent.md`.
-- **Schema 12 compliance_report**: append-only audit trail in Material Passport via `compliance_history[]`.
-- **3-round override ladder**: user overrides produce auto-injected `disclosure_addendum`. See `shared/compliance_checkpoint_protocol.md`.
-- **Long-running session docs**: `docs/PERFORMANCE.md` now covers cross-session resume via Material Passport.
-
-## v3.3 Key Additions
-
-- **Semantic Scholar API Verification**: Tier 0 programmatic reference verification. See `deep-research/references/semantic_scholar_api_protocol.md`.
-- **Anti-Leakage Protocol**: Knowledge isolation prioritizing session materials over LLM memory. See `academic-paper/references/anti_leakage_protocol.md`.
-- **VLM Figure Verification**: Optional closed-loop figure verification via vision LLM. See `academic-paper/references/vlm_figure_verification.md`.
-- **Score Trajectory Protocol**: Per-dimension rubric score delta tracking across revision rounds. See `academic-pipeline/references/score_trajectory_protocol.md`.
-- **Stage 2 Parallelization**: Visualization and argument building can run in parallel after outline.
-
-## v3.2 Key Additions
-
-- **7-mode AI Research Failure Mode Checklist**: blocks pipeline at Stage 2.5/4.5 on suspected failures (Lu 2026). See `academic-pipeline/references/ai_research_failure_modes.md`.
-- **Reviewer Calibration Mode**: opt-in FNR/FPR/balanced-accuracy measurement. See `academic-paper-reviewer/references/calibration_mode_protocol.md`.
-- **Disclosure Mode**: venue-specific AI-usage statement (ICLR/NeurIPS/Nature/Science/ACL/EMNLP). See `academic-paper/references/disclosure_mode_protocol.md`.
-- **Early-Stopping + Budget Transparency**: convergence check + token cost estimate at pipeline start.
-- **Fidelity-Originality Mode Spectrum**: classifies all modes. See `shared/mode_spectrum.md`.
-
-## v3.0 Key Additions
-
-- **Anti-sycophancy protocols**: DA agents score rebuttals 1-5 before conceding. No concession below 4/5. Frame-lock detection.
-- **Intent detection**: Socratic Mentor classifies user intent as exploratory vs. goal-oriented. Exploratory mode disables auto-convergence.
-- **Cross-model verification** (optional): Set `ARS_CROSS_MODEL` env var to enable GPT-5.4 Pro or Gemini 3.1 Pro for integrity sample checks and independent Devil's Advocate critique. Peer-review sixth-reviewer support remains planned. See `shared/cross_model_verification.md`.
-- **AI Self-Reflection Report**: Pipeline Stage 6 now includes AI behavioral self-assessment (concession rate, health alerts, sycophancy risk rating).
-
-## Routing Rules
-
-1. **academic-pipeline vs individual skills**: academic-pipeline = full pipeline orchestrator (research → write → integrity → review → revise → final integrity → finalize). If the user only needs a single function (just research, just write, just review), trigger the corresponding skill directly without the pipeline.
-
-2. **deep-research vs academic-paper**: Complementary. deep-research = upstream research engine (investigation + fact-checking), academic-paper = downstream publication engine (paper writing + bilingual abstracts). Recommended flow: deep-research → academic-paper.
-
-3. **deep-research socratic vs full**: socratic = guided Socratic dialogue to help users clarify their research question. full = direct production of research report. When the user's research question is unclear, suggest socratic mode.
-
-4. **academic-paper plan vs full**: plan = chapter-by-chapter guided planning via Socratic dialogue. full = direct paper production. When the user wants to think through their paper structure, suggest plan mode.
-
-5. **academic-paper-reviewer guided vs full**: guided = Socratic review that engages the author in dialogue about issues. full = standard multi-perspective review report. When the user wants to learn from the review, suggest guided mode.
-
-## Key Rules
-
-- All claims must have citations
-- Evidence hierarchy respected (meta-analyses > RCTs > cohort > case reports > expert opinion)
-- Contradictions disclosed with evidence quality comparison
-- AI disclosure in all reports
-- Default output language matches user input (Traditional Chinese or English)
-
-## Full Academic Pipeline
-
-```
-deep-research (socratic/full)
-  → academic-paper (plan/full)
-    → integrity check (Stage 2.5)
-      → academic-paper-reviewer (full/guided)
-        → academic-paper (revision)
-          → academic-paper-reviewer (re-review, max 2 loops)
-            → final integrity check (Stage 4.5)
-              → academic-paper (format-convert → final output)
-                → Process Summary + AI Self-Reflection Report
+# Run individual lint checks (when working on a specific feature)
+python3 scripts/check_version_consistency.py              # Sync versions across files
+python3 scripts/check_data_access_level.py                 # Validate data_access_level frontmatter
+python3 scripts/check_task_type.py                         # Validate task_type frontmatter
+python3 scripts/check_sprint_contract.py <json-file>       # Reviewer/writer/evaluator contracts
+python3 scripts/check_collaboration_depth_rubric.py        # Observer agent rubric
+python3 scripts/check_literature_corpus_schema.py          # Passport corpus schemas
+python3 scripts/check_corpus_consumer_protocol.py          # v3.6.5 consumer protocol
+python3 scripts/check_passport_reset_contract.py           # v3.6.3 reset boundary
+python3 scripts/check_v3_6_7_pattern_protection.py         # v3.6.7 pattern protection
+python3 scripts/check_v3_7_3_three_layer_citation.py       # v3.7.3 citation anchors
+python3 scripts/check_claim_audit_consistency.py           # v3.8 claim audit invariants
 ```
 
-## Handoff Protocol
+```bash
+# Run unit tests (required when modifying lint scripts)
+python3 -m unittest scripts.test_check_sprint_contract -v
+python3 -m unittest scripts.test_check_collaboration_depth_rubric -v
+python3 -m unittest scripts.test_check_passport_reset_contract -v
+python3 -m unittest scripts.test_check_v3_6_7_pattern_protection -v
+python3 -m unittest scripts.test_claim_audit_schema scripts.test_claim_audit_pipeline -v
 
-### deep-research → academic-paper
-Materials: RQ Brief, Methodology Blueprint, Annotated Bibliography, Synthesis Report, INSIGHT Collection
+# Or run all pytest tests
+pip install pytest pyyaml jsonschema
+pytest scripts/test_check_*.py -v
+```
 
-### academic-paper → academic-paper-reviewer
-Materials: Complete paper text. field_analyst_agent auto-detects domain and configures reviewers.
+```bash
+# Validate a sprint contract JSON against schema
+python3 scripts/check_sprint_contract.py shared/contracts/reviewer/full.json --ars-version v3.8.2
+```
 
-### academic-paper-reviewer → academic-paper (revision)
-Materials: Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments
+```bash
+# Run a specific claim audit calibration test (when modifying audit logic)
+python3 -m unittest scripts.test_claim_audit_calibration -v
+```
 
-## Version Info
-- **Suite version**: 3.8.2 (per CHANGELOG.md)
-- **Last Updated**: 2026-05-17
-- **Author**: Cheng-I Wu
-- **License**: CC-BY-NC 4.0
+## Architecture Overview
+
+### Four Skills
+
+- **`deep-research/`** — 7-mode research engine (socratic/full/systematic-review/etc). 13 agents. Produces RQ Brief, Annotated Bibliography, Synthesis Report.
+- **`academic-paper/`** — 10-mode paper writing engine (full/plan/revision/etc). 12 agents. Produces Draft, Bilingual Abstract, Citation List.
+- **`academic-paper-reviewer/`** — 6-mode review engine (full/re-review/methodology-focus/etc). 7 agents. Produces EIC + 3 Reviewers + Devil's Advocate reports.
+- **`academic-pipeline/`** — Orchestrator coordinating all above. 10-stage pipeline with checkpoints and integrity gates.
+
+Mode details: `MODE_REGISTRY.md` (single source of truth for all 25 modes, triggers, spectrum classification).
+
+### Plugin Packaging (v3.7.0+)
+
+- **`.claude-plugin/`** — Plugin manifest for Claude Code marketplace
+- **`commands/ars-*.md`** — 10 slash command definitions mapping modes to `/ars-<mode>` triggers
+- **`agents/*.md`** — 3 plugin-shipped agents (symlinks to deep-research/agents/ with `model: inherit` frontmatter)
+- **`skills/`** — Symlink dir used by plugin loader
+
+### Key Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `shared/` | Cross-cutting schemas (`handoff_schemas.md`), contracts (`contracts/`), patterns, rubrics |
+| `shared/contracts/reviewer/` | Sprint contract templates (Schema 13.1) |
+| `shared/contracts/writer/` | Writer contracts (Schema 13.1) |
+| `shared/contracts/evaluator/` | Evaluator contracts (Schema 13.1) |
+| `shared/contracts/passport/` | Material Passport schemas (Schema 9) |
+| `scripts/` | ~60 Python lint/validation scripts. Most important: `check_spec_consistency.py`, `check_sprint_contract.py`, `check_claim_audit_consistency.py` |
+| `scripts/adapters/` | Reference Python adapters for literature corpus ingestion (Zotero, Obsidian, folder scan) |
+| `docs/ARCHITECTURE.md` | Full 10-stage pipeline matrix, flow diagrams, data access levels, quality gates |
+| `docs/design/` | Design specs for each versioned feature (v3.7.3, v3.6.8, etc) |
+| `docs/PERFORMANCE.md` | Token budgets, cost estimates, session management guidance |
+| `tests/fixtures/` | Test fixtures for claim audit, pattern eval, A/B manifests |
+
+### Data Access Level System (v3.3.2+)
+
+Every skill declares `data_access_level`:
+- `raw` — deep-research (ground truth isolation, operates on unverified sources)
+- `redacted` — academic-paper (operates on sanitized materials, can make new claims)
+- `verified_only` — academic-paper-reviewer, academic-pipeline (reads only verified/integrity-gated materials)
+
+The gate enforcement points are Stage 2.5 and 4.5 (integrity verification). See `shared/ground_truth_isolation_pattern.md`.
+
+### Important Cross-Cutting Files
+
+| File | What it does |
+|------|--------------|
+| `shared/handoff_schemas.md` | Defines Material Passport (Schema 9), stage handoff formats, history arrays |
+| `shared/sprint_contract.schema.json` | Schema 13.1 — reviewer/writer/evaluator pre-commitment contracts |
+| `shared/collaboration_depth_rubric.md` | 4-dimension rubric for `collaboration_depth_agent` (advisory only) |
+| `MODE_REGISTRY.md` | 25 modes × 4 skills with triggers and oversight levels |
+| `CHANGELOG.md` | Versioned release notes (runs 100+ KB; extremely detailed) |
+
+### Agent File Structure
+
+Agent prompts are markdown files with YAML frontmatter:
+
+```yaml
+---
+name: research_question_agent
+description: Generates research questions from user input
+model: sonnet  # or opus, or 'inherit' for plugin agents
+---
+```
+
+Agents live in `<skill>/agents/<agent_name>_agent.md`. Agent prompts follow a cognitive framework pattern — they teach "how to think" not just procedures. Look for `PATTERN PROTECTION` sections in hardened agents (v3.6.7+).
+
+### Environment Variables
+
+```bash
+# Pipeline control
+ARS_PASSPORT_RESET=1           # Opt-in: promote every FULL checkpoint to reset boundary
+ARS_CLAIM_AUDIT=1              # Opt-in: enable v3.8 claim-faithfulness audit gate (default OFF)
+ARS_SOCRATIC_READING_PROBE=1   # Opt-in: enable v3.5.1 reading-check probe
+ARS_CROSS_MODEL=1              # Enable cross-model verification (GPT/Gemini)
+
+# API keys (user must set)
+ANTHROPIC_API_KEY              # Required for Claude Code
+S2_API_KEY                     # Optional: Semantic Scholar API (higher rate limits)
+```
+
+### CI/CD
+
+`.github/workflows/spec-consistency.yml` runs on push/PR. It executes:
+1. `check_spec_consistency.py` — cross-file version/sync checks
+2. All sprint contract validation (reviewer + writer + evaluator)
+3. All v3.6.7, v3.6.8, v3.7.3, v3.8 lints and their unit tests
+4. Collaboration depth and benchmark report checks
+
+### Testing Approach
+
+No traditional unit tests for "business logic" — logic lives in LLM prompts. Instead:
+- **Lint scripts** enforce structural invariants (schema, naming, line budgets)
+- **Mutation tests** verify lints catch prompt modifications
+- **Unit tests** verify the lint scripts themselves
+- **E2E tests** verify claim audit pipeline on synthetic papers
+
+When modifying agent prompts: check if there's a matching `test_check_v3_X_Y_pattern_protection.py` or similar. The lint byte-equivalence gates (v3.6.7+) prevent drift in hardened sections.
+
+### Version-Gated Features
+
+ARS evolves through feature contracts tracked by version:
+- **v3.6.7** — Pattern protection (A1-A5, B1-B5, C1-C3) in downstream agents
+- **v3.6.8** — Generator-evaluator contract (Schema 13.1) with two-phase paper-blind/paper-visible protocol
+- **v3.7.3** — Three-layer citation emission (`<!--anchor:kind:value-->`) and contamination signals
+- **v3.8.0** — Claim-faithfulness audit (retrieval against locator anchors) with HIGH-WARN gate refusal
+
+Each version has a design spec in `docs/design/` and a matching lint in `scripts/`.
+
+## Routing Rules for Users
+
+From `README.md` and current CLAUDE.md. Apply these when a user asks about ARS:
+
+1. **Individual skill vs pipeline**: If user needs single function (just research, just write, just review) — trigger the skill directly without pipeline. If end-to-end — use pipeline.
+
+2. **deep-research socratic vs full**: If research question is unclear or user says "guide me" — `socratic` mode. If defined question — `full` mode.
+
+3. **academic-paper plan vs full**: If user wants to think through structure — `plan` mode. If ready to write — `full` mode.
+
+4. **academic-paper-reviewer guided vs full**: If user wants to learn from review — `guided` mode. If standard assessment — `full` mode.
+
+5. **Language**: Default output language matches user input (Traditional Chinese or English).
+
+## Handoff Materials
+
+| Stage transition | Key materials passed |
+|------------------|---------------------|
+| deep-research → academic-paper | RQ Brief, Methodology Blueprint, Annotated Bibliography, Synthesis Report, INSIGHT Collection |
+| academic-paper → academic-paper-reviewer | Complete paper text (field_analyst_agent auto-detects domain) |
+| academic-paper-reviewer → academic-paper (revision) | Editorial Decision Letter, Revision Roadmap, Per-reviewer detailed comments |
+
