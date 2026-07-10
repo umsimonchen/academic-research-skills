@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Academic Research Skills (ARS) is a source-available academic research copilot framework for Claude Code. It provides a 10-stage pipeline (research → write → integrity → review → revise → final integrity → finalize) with mandatory human checkpoints. The code is agent prompts (markdown), validation scripts (Python 3), schemas (JSON), and slash command definitions. This is not traditional code—most logic lives in detailed agent prompts and validation contracts.
 
+- **Suite version**: 3.8.2
+
 **License:** CC-BY-NC 4.0 (Academic/non-commercial use only)
 
 ## Essential Commands
@@ -59,10 +61,12 @@ python3 -m unittest scripts.test_claim_audit_calibration -v
 
 ### Four Skills
 
-- **`deep-research/`** — 7-mode research engine (socratic/full/systematic-review/etc). 13 agents. Produces RQ Brief, Annotated Bibliography, Synthesis Report.
-- **`academic-paper/`** — 10-mode paper writing engine (full/plan/revision/etc). 12 agents. Produces Draft, Bilingual Abstract, Citation List.
-- **`academic-paper-reviewer/`** — 6-mode review engine (full/re-review/methodology-focus/etc). 7 agents. Produces EIC + 3 Reviewers + Devil's Advocate reports.
-- **`academic-pipeline/`** — Orchestrator coordinating all above. 10-stage pipeline with checkpoints and integrity gates.
+| Skill | Description |
+|-------|-------------|
+| `deep-research` v2.9.3 | 7-mode research engine (socratic/full/systematic-review/etc). 13 agents. Produces RQ Brief, Annotated Bibliography, Synthesis Report. |
+| `academic-paper` v3.1.1 | 10-mode paper writing engine (full/plan/revision/etc). 12 agents. Produces Draft, Bilingual Abstract, Citation List. |
+| `academic-paper-reviewer` v1.9.0 | 6-mode review engine (full/re-review/methodology-focus/etc). 7 agents. Produces EIC + 3 Reviewers + Devil's Advocate reports. |
+| `academic-pipeline` v3.8.2 | Orchestrator coordinating all above. 10-stage pipeline with checkpoints and integrity gates. |
 
 Mode details: `MODE_REGISTRY.md` (single source of truth for all 25 modes, triggers, spectrum classification).
 
@@ -96,7 +100,7 @@ Every skill declares `data_access_level`:
 - `redacted` — academic-paper (operates on sanitized materials, can make new claims)
 - `verified_only` — academic-paper-reviewer, academic-pipeline (reads only verified/integrity-gated materials)
 
-The gate enforcement points are Stage 2.5 and 4.5 (integrity verification). See `shared/ground_truth_isolation_pattern.md`.
+The gate enforcement points are the integrity check (Stage 2.5) and the final integrity check (Stage 4.5). See `shared/ground_truth_isolation_pattern.md`.
 
 ### Important Cross-Cutting Files
 
@@ -126,7 +130,7 @@ Agents live in `<skill>/agents/<agent_name>_agent.md`. Agent prompts follow a co
 
 ```bash
 # Pipeline control
-ARS_PASSPORT_RESET=1           # Opt-in: promote every FULL checkpoint to reset boundary
+ARS_PASSPORT_RESET=1           # Opt-in: promote every FULL checkpoint to reset boundary. Protocol: `academic-pipeline/references/passport_as_reset_boundary.md`.
 ARS_CLAIM_AUDIT=1              # Opt-in: enable v3.8 claim-faithfulness audit gate (default OFF)
 ARS_SOCRATIC_READING_PROBE=1   # Opt-in: enable v3.5.1 reading-check probe
 ARS_CROSS_MODEL=1              # Enable cross-model verification (GPT/Gemini)
